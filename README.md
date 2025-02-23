@@ -1,4 +1,5 @@
-#TimerFour Library#
+TimerFour Library
+=================
 
 _Note:_ This fork allows specification of PWM on time in microseconds, rather
 than a duty cycle as a proportion of this period. Useful for producing timing
@@ -20,6 +21,8 @@ Timer4.initialize(1000000);
 // specify on time
 Timer4.pwm_ontime(PIN,ON_TIME_US);
 ```
+
+---
 
 Simple names changes to use Timer4 on Mega boards.
 
