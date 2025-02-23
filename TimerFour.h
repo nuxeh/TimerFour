@@ -56,23 +56,28 @@ class TimerFour
         const unsigned long cycles = (F_CPU / 2000000) * microseconds;
         if (cycles < TIMER4_RESOLUTION) {
                 clockSelectBits = _BV(CS40);
+                pwmPrescale = 1;
                 pwmPeriod = cycles;
         } else
         if (cycles < TIMER4_RESOLUTION * 8) {
                 clockSelectBits = _BV(CS41);
-                pwmPeriod = cycles / 8;
+                pwmPrescale = 8;
+                pwmPeriod = cycles / pwmPrescale;
         } else
         if (cycles < TIMER4_RESOLUTION * 64) {
                 clockSelectBits = _BV(CS41) | _BV(CS40);
-                pwmPeriod = cycles / 64;
+                pwmPrescale = 64;
+                pwmPeriod = cycles / pwmPrescale;
         } else
         if (cycles < TIMER4_RESOLUTION * 256) {
                 clockSelectBits = _BV(CS42);
-                pwmPeriod = cycles / 256;
+                pwmPrescale = 256;
+                pwmPeriod = cycles / pwmPrescale;
         } else
         if (cycles < TIMER4_RESOLUTION * 1024) {
                 clockSelectBits = _BV(CS42) | _BV(CS40);
-                pwmPeriod = cycles / 1024;
+                pwmPrescale = 1024;
+                pwmPeriod = cycles / pwmPrescale;
         } else {
                 clockSelectBits = _BV(CS42) | _BV(CS40);
                 pwmPeriod = TIMER4_RESOLUTION - 1;
@@ -105,19 +110,31 @@ class TimerFour
     /*
      * Duty goes from 0 to 1023.
      */
-    void setPwmDuty(char pin, unsigned int duty) __attribute__((always_inline)) {
+    void setPwmDuty(uint8_t pin, uint16_t duty) __attribute__((always_inline)) {
         unsigned long dutyCycle = pwmPeriod;
         dutyCycle *= duty;
         dutyCycle >>= 10;
-        if (pin == TIMER4_A_PIN) OCR4A = dutyCycle;
+        setCompareReg(pin, dutyCycle);
+    }
+    void setOnTime(uint8_t pin, uint32_t microseconds) __attribute__((always_inline)) {
+        unsigned long cycles = (F_CPU / 2000000) * microseconds;
+        unsigned short onPeriod = cycles / pwmPrescale;
+        if (onPeriod <= pwmPeriod) {
+            setCompareReg(pin, onPeriod);
+        } else {
+            setCompareReg(pin, pwmPeriod);
+        }
+    }
+    void setCompareReg(uint8_t pin, uint16_t compVal) {
+        if (pin == TIMER4_A_PIN) OCR4A = compVal;
         #ifdef TIMER4_B_PIN
-        else if (pin == TIMER4_B_PIN) OCR4B = dutyCycle;
+        else if (pin == TIMER4_B_PIN) OCR4B = compVal;
         #endif
         #ifdef TIMER4_C_PIN
-        else if (pin == TIMER4_C_PIN) OCR4C = dutyCycle;
+        else if (pin == TIMER4_C_PIN) OCR4C = compVal;
         #endif
     }
-    void pwm(char pin, unsigned int duty) __attribute__((always_inline)) {
+    void setUpOutputs(uint8_t pin) __attribute__((always_inline)) {
         if (pin == TIMER4_A_PIN) { pinMode(TIMER4_A_PIN, OUTPUT); TCCR4A |= _BV(COM4A1); }
         #ifdef TIMER4_B_PIN
         else if (pin == TIMER4_B_PIN) { pinMode(TIMER4_B_PIN, OUTPUT); TCCR4A |= _BV(COM4B1); }
@@ -125,12 +142,24 @@ class TimerFour
         #ifdef TIMER4_C_PIN
         else if (pin == TIMER4_C_PIN) { pinMode(TIMER4_C_PIN, OUTPUT); TCCR4A |= _BV(COM4C1); }
         #endif
+    }
+    void pwm(uint8_t pin, uint16_t duty) __attribute__((always_inline)) {
+        setUpOutputs(pin);
         setPwmDuty(pin, duty);
         TCCR4B = _BV(WGM43) | clockSelectBits;
     }
-    void pwm(char pin, unsigned int duty, unsigned long microseconds) __attribute__((always_inline)) {
+    void pwm_ontime(uint8_t pin, uint32_t onTime) __attribute__((always_inline)) {
+        setUpOutputs(pin);
+        setOnTime(pin, onTime);
+        TCCR4B = _BV(WGM43) | clockSelectBits;
+    }
+    void pwm(uint8_t pin, uint16_t duty, uint32_t microseconds) __attribute__((always_inline)) {
         if (microseconds > 0) setPeriod(microseconds);
         pwm(pin, duty);
+    }
+    void pwm_ontime(uint8_t pin, uint32_t onTime, uint32_t microseconds) __attribute__((always_inline)) {
+        if (microseconds > 0) setPeriod(microseconds);
+        pwm(pin, onTime);
     }
     void disablePwm(char pin) __attribute__((always_inline)) {
         if (pin == TIMER4_A_PIN) TCCR4A &= ~_BV(COM4A1);
@@ -161,6 +190,7 @@ class TimerFour
   private:
     // properties
     static unsigned short pwmPeriod;
+    static unsigned short pwmPrescale;
     static unsigned char clockSelectBits;
 
 #endif
