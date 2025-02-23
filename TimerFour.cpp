@@ -20,6 +20,7 @@
 TimerFour Timer4;              // preinstatiate
 
 unsigned short TimerFour::pwmPeriod = 0;
+unsigned short TimerFour::pwmPrescale = 1;
 unsigned char TimerFour::clockSelectBits = 0;
 void (*TimerFour::isrCallback)() = NULL;
 
